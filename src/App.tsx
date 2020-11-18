@@ -1,26 +1,27 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import mapboxgl from 'mapbox-gl';
 
-function App() {
+
+export function App() {
+const [lng, setLng] = useState(5) 
+const [lat, setLat] = useState(34) 
+const [zoom, setZoom] = useState(2) 
+const setMap = useCallback(container => {
+  new mapboxgl.Map({
+    container,
+    style: 'mapbox://styles/mapbox/streets-v11',
+    center: [lng, lat],
+    zoom: zoom
+  })
+}, [])
+
+
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div ref={setMap}>
+   
     </div>
-  );
+  )
 }
 
-export default App;
+
