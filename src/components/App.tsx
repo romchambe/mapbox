@@ -1,25 +1,15 @@
-import React, { useCallback, } from 'react';
-import mapboxgl from 'mapbox-gl';
+import React, { useCallback } from "react"
+import mapboxgl from "mapbox-gl"
 
+export function App(): JSX.Element {
+  const setMap = useCallback((container) => {
+    new mapboxgl.Map({
+      container,
+      style: "mapbox://styles/mapbox/streets-v11",
+      center: [5, 32],
+      zoom: 2,
+    })
+  }, [])
 
-export function App() {
-
-const setMap = useCallback(container => {
-  new mapboxgl.Map({
-    container,
-    style: 'mapbox://styles/mapbox/streets-v11',
-    center: [5, 32],
-    zoom: 2
-  })
-}, [])
-
-
-
-  return (
-    <div ref={setMap}>
-   
-    </div>
-  )
+  return <div ref={setMap}></div>
 }
-
-
