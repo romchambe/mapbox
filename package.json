@@ -22,7 +22,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "tailwind": "tailwindcss build src/assets/styles/tailwind.css -o src/assets/styles/tailwind.output.css",
+    "prebuild": "export NODE_ENV=production && npm run tailwind"
   },
   "eslintConfig": {
     "extends": [

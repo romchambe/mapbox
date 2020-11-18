@@ -1,5 +1,6 @@
 import React, { useCallback } from "react"
 import mapboxgl from "mapbox-gl"
+import "../assets/styles/tailwind.output.css"
 
 export function App(): JSX.Element {
   const setMap = useCallback((container) => {
@@ -11,5 +12,9 @@ export function App(): JSX.Element {
     })
   }, [])
 
-  return <div ref={setMap}></div>
+  return (
+    <div className="p-8 pb-12 h-screen">
+      <div className="h-full" ref={setMap} />
+    </div>
+  )
 }
