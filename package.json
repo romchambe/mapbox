@@ -14,6 +14,7 @@
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
     "react-scripts": "4.0.0",
+    "tailwindcss": "^1.9.6",
     "typescript": "^4.0.3",
     "web-vitals": "^0.2.4"
   },
@@ -21,7 +22,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "tailwind": "tailwindcss build src/assets/styles/tailwind.css -o src/assets/styles/tailwind.output.css",
+    "prebuild": "export NODE_ENV=production && npm run tailwind"
   },
   "eslintConfig": {
     "extends": [
@@ -42,6 +45,12 @@
     ]
   },
   "devDependencies": {
-    "@types/mapbox-gl": "^1.12.8"
+    "@types/mapbox-gl": "^1.12.8",
+    "@typescript-eslint/eslint-plugin": "^4.8.1",
+    "@typescript-eslint/parser": "^4.8.1",
+    "eslint-config-prettier": "^6.15.0",
+    "eslint-plugin-jest": "^24.1.3",
+    "eslint-plugin-prettier": "^3.1.4",
+    "prettier": "^2.1.2"
   }
 }
