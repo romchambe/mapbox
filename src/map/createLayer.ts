@@ -3,17 +3,21 @@ import {
   CustomLayerInterface,
   MercatorCoordinate,
   MapboxEvent,
+  Point,
 } from "mapbox-gl"
-import { GeoJSON } from "geojson"
+
 import {
-  AxesHelper,
-  BoxGeometry,
+  CylinderGeometry,
   DirectionalLight,
+  Intersection,
   Matrix4,
   Mesh,
-  MeshBasicMaterial,
+  MeshPhongMaterial,
+  Object3D,
   PerspectiveCamera,
+  Raycaster,
   Scene,
+  Vector2,
   Vector3,
   WebGLRenderer,
 } from "three"
@@ -27,13 +31,17 @@ export class Layer implements CustomLayerInterface {
   id: string
   renderingMode: "2d" | "3d"
   type: "custom" = "custom"
-  map: null | Map = null
+  map: null | any = null
   camera: null | PerspectiveCamera = null
   scene: null | Scene = null
   renderer: null | WebGLRenderer = null
   ready = false
   state: { buildings: DrawableFeature[]; tilesLoaded: string[] }
   loadTiles: (event: MapboxEvent) => void
+  raycaster = new Raycaster()
+  origin: MercatorCoordinate
+  scale: number
+  cameraTransform: Matrix4
 
   constructor(params: { id: string; renderingMode: "2d" | "3d" }) {
     const { id, renderingMode } = params
@@ -41,17 +49,42 @@ export class Layer implements CustomLayerInterface {
     this.renderingMode = renderingMode
     this.state = { buildings: [], tilesLoaded: [] }
     this.loadTiles = loadTiles.bind(this)
+
+    this.origin = MercatorCoordinate.fromLngLat([originLng, originLat], 0)
+    this.scale = this.origin.meterInMercatorCoordinateUnits()
+
+    const { x, y, z } = this.origin
+
+    const scale = new Matrix4().makeScale(
+      this.scale,
+      this.scale,
+      -this.scale
+    )
+
+    this.cameraTransform = new Matrix4()
+      .multiply(scale)
+      .setPosition(x, y, z)
+
+    this.raycaster.near = -1
+    this.raycaster.far = 1e6
   }
 
   onAdd(map: Map, gl: WebGLRenderingContext): void {
     this.map = map
-    this.camera = new PerspectiveCamera()
+    this.camera = new PerspectiveCamera(
+      28,
+      this.map.transform.width / this.map.transform.height,
+      1,
+      1e6
+    )
     this.scene = new Scene()
     this.renderer = new WebGLRenderer({
       canvas: map.getCanvas(),
       context: gl,
       antialias: true,
     })
+
+    console.log(this.map.transform, this.cameraTransform)
     this.renderer.autoClear = false
     this.map.on("move", this.loadTiles)
 
@@ -63,15 +96,54 @@ export class Layer implements CustomLayerInterface {
     const directionalLight2 = new DirectionalLight(0xffffff)
     directionalLight2.position.set(0, 70, 100).normalize()
     this.scene.add(directionalLight2)
+  }
 
-    const axesHelper = new AxesHelper(1000)
-    this.scene.add(axesHelper)
+  raycast(point: Point): void {
+    if (this.camera && this.scene && this.map) {
+      const mouse = new Vector2()
+      // scale mouse pixel position to a percentage of the screen's width and height
+      mouse.x = (point.x / this.map.transform.width) * 2 - 1
+      mouse.y = 1 - (point.y / this.map.transform.height) * 2
+
+      const camInverseProjection = new Matrix4().getInverse(
+        this.camera.projectionMatrix
+      )
+      const cameraPosition = new Vector3().applyMatrix4(
+        camInverseProjection
+      )
+      const mousePosition = new Vector3(mouse.x, mouse.y, 1).applyMatrix4(
+        camInverseProjection
+      )
+
+      const viewDirection = mousePosition
+        .clone()
+        .sub(cameraPosition)
+        .normalize()
+
+      this.raycaster.set(cameraPosition, viewDirection)
+
+      // calculate objects intersecting the picking ray
+      const intersects = this.raycaster.intersectObjects(
+        this.scene.children,
+        true
+      )
+      intersects.forEach((intersection: Intersection) => {
+        const material = (intersection.object as Mesh)
+          .material as MeshPhongMaterial
+
+        material.color.setHex(0x00aa00)
+        material.emissive.setHex(0x008800)
+        material.specular.setHex(0x00cc00)
+
+        animate(intersection.object)
+      })
+      if (intersects.length > 0) {
+        console.log("MOUSE", intersects[0])
+      }
+    }
   }
 
   render(gl: WebGLRenderingContext, matrix: Array<number>): void {
-    const origin = MercatorCoordinate.fromLngLat([originLng, originLat])
-    const scale = origin.meterInMercatorCoordinateUnits()
-
     this.state.buildings.forEach((feature, index) => {
       if (
         feature &&
@@ -80,7 +152,9 @@ export class Layer implements CustomLayerInterface {
         !feature.drawn
       ) {
         let lnglat: null | [number, number]
+
         switch (feature.geometry.type) {
+          // get only polygons and multipolygons coords
           case "Polygon":
             lnglat = [
               feature.geometry.coordinates[0][0][0],
@@ -103,37 +177,50 @@ export class Layer implements CustomLayerInterface {
           lnglat
         )
 
+        // compute the offset from origin in meters
         const mercatorOffset = {
-          x: (pos.x - origin.x) / scale,
-          y: (pos.y - origin.y) / scale,
+          x: (pos.x - this.origin.x) / this.scale,
+          y: (pos.y - this.origin.y) / this.scale,
         }
 
-        console.log("offset in meters", mercatorOffset)
-        const geometry = new BoxGeometry(20, 20, 20)
-        const material = new MeshBasicMaterial({ color: 0x666666 })
-        const cube = new Mesh(geometry, material)
-        cube.position.set(mercatorOffset.x, mercatorOffset.y, 0)
-
-        if (this.scene) this.scene.add(cube)
+        // draw a g
+        const geometry = new CylinderGeometry(10, 10, 3, 32)
+        const material = new MeshPhongMaterial({
+          color: 0xaaaaaa,
+          specular: "#cccccc",
+          emissive: "#888888",
+        })
+        const obj = new Mesh(geometry, material)
+        obj.position.set(mercatorOffset.x, mercatorOffset.y, 0)
+        obj.rotation.set(0, Math.PI / 2, Math.PI / 2)
+        if (this.scene) this.scene.add(obj)
         this.state.buildings[index].drawn = true
       }
     })
-    const geometry = new BoxGeometry(20, 20, 20)
-    const material = new MeshBasicMaterial({ color: 0x666666 })
-    const cube = new Mesh(geometry, material)
-    if (this.scene) this.scene.add(cube)
-
-    const m = new Matrix4().fromArray(matrix)
-    const l = new Matrix4()
-      .makeTranslation(origin.x, origin.y, 0)
-      .scale(new Vector3(scale, scale, scale))
 
     if (!!this.map && !!this.renderer && !!this.scene && !!this.camera) {
-      this.camera.projectionMatrix = m.multiply(l)
+      // console.log(this.map.transform.mercatorMatrix, matrix)
+      this.camera.projectionMatrix = new Matrix4()
+        .fromArray(matrix)
+        .multiply(this.cameraTransform)
 
       this.renderer.state.reset()
       this.renderer.render(this.scene, this.camera)
       this.map.triggerRepaint()
     }
   }
+}
+
+function animate(cylinder: Object3D) {
+  const intervals = 30
+  const height = 20
+  const changePerInterval = height / intervals
+
+  while (cylinder.scale.y < height) {
+    cylinder.scale.y += changePerInterval
+  }
+
+  requestAnimationFrame((time) => {
+    animate(cylinder)
+  })
 }

@@ -44,7 +44,7 @@ export function loadTiles(this: Layer, event: MapboxEvent): void {
   const zoom = Math.trunc(event.target.getZoom())
   const { x, y } = getTileCoords(center.lat, center.lng, zoom)
 
-  console.log("ZOOM", x, y, zoom)
+  console.log("ZOOM", x, y, zoom, this.map)
 
   if (zoom >= 13 && zoom < 16) {
     if (!this.state.tilesLoaded.includes(`${x}-${y}-${zoom}`)) {

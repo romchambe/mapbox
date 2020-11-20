@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react"
-import mapboxgl, { MapboxEvent } from "mapbox-gl"
+import mapboxgl, { MapboxEvent, MapMouseEvent } from "mapbox-gl"
 import "../assets/styles/tailwind.output.css"
 import { originLat, originLng, Layer } from "../map/createLayer"
 
@@ -14,10 +14,9 @@ export function App(): JSX.Element {
           style: "mapbox://styles/mapbox/streets-v11",
           zoom: 14,
           center: [originLng, originLat],
-          pitch: 15,
+          pitch: 40,
           antialias: true,
         })
-
         setMapEl(map)
       }
     },
@@ -27,10 +26,12 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (mapEl) {
       mapEl.on("load", addLayer)
+      mapEl.on("mousemove", handleHover)
 
       return () => {
         mapEl.off("load", addLayer)
         mapEl.off("move", layer.loadTiles)
+        mapEl.off("mousemove", handleHover)
       }
     }
   }, [mapEl])
@@ -50,4 +51,8 @@ function addLayer(ev: MapboxEvent): void {
   if (!map.getLayer("custom_buildings")) {
     map.addLayer(layer)
   }
+}
+
+function handleHover(e: MapMouseEvent) {
+  layer.raycast(e.point)
 }
