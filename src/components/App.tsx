@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react"
 import mapboxgl, { MapboxEvent } from "mapbox-gl"
 import "../assets/styles/tailwind.output.css"
-import { centerLat, centerLng, Layer } from "../map/createLayer"
+import { originLat, originLng, Layer } from "../map/createLayer"
 
 export function App(): JSX.Element {
   const [mapEl, setMapEl] = useState<null | mapboxgl.Map>(null)
@@ -13,7 +13,7 @@ export function App(): JSX.Element {
           container,
           style: "mapbox://styles/mapbox/streets-v11",
           zoom: 14,
-          center: [centerLng, centerLat],
+          center: [originLng, originLat],
           pitch: 30,
           antialias: true,
         })
@@ -30,6 +30,7 @@ export function App(): JSX.Element {
 
       return () => {
         mapEl.off("load", addLayer)
+        mapEl.off("move", layer.loadTiles)
       }
     }
   }, [mapEl])
@@ -41,20 +42,12 @@ export function App(): JSX.Element {
   )
 }
 
-// function moveListener(ev: MapboxEvent): void {
-//   console.log(
-//     "EVENT",
-//     ev.target.getCenter().lat,
-//     ev.target.getCenter().lng
-//   )
-// }
+const layer = new Layer({ id: "custom_buildings", renderingMode: "3d" })
 
 function addLayer(ev: MapboxEvent): void {
   console.log("Styles", ev)
   const map = ev.target
   if (!map.getLayer("custom_buildings")) {
-    map.addLayer(
-      new Layer({ id: "custom_buildings", renderingMode: "3d" })
-    )
+    map.addLayer(layer)
   }
 }
