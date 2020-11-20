@@ -4,6 +4,7 @@ import {
   MercatorCoordinate,
   MapboxEvent,
 } from "mapbox-gl"
+import { GeoJSON } from "geojson"
 import {
   AxesHelper,
   BoxGeometry,
@@ -21,17 +22,17 @@ import { loadTiles } from "./tiles"
 export const originLat = 48.85827
 export const originLng = 2.29448
 
+type DrawableFeature = { drawn: boolean } & GeoJSON.Feature
 export class Layer implements CustomLayerInterface {
   id: string
   renderingMode: "2d" | "3d"
-  // eslint-disable-next-line @typescript-eslint/no-inferrable-types
   type: "custom" = "custom"
   map: null | Map = null
   camera: null | PerspectiveCamera = null
   scene: null | Scene = null
   renderer: null | WebGLRenderer = null
   ready = false
-  state: { buildings: any[]; tilesLoaded: string[] }
+  state: { buildings: DrawableFeature[]; tilesLoaded: string[] }
   loadTiles: (event: MapboxEvent) => void
 
   constructor(params: { id: string; renderingMode: "2d" | "3d" }) {
@@ -63,7 +64,7 @@ export class Layer implements CustomLayerInterface {
     directionalLight2.position.set(0, 70, 100).normalize()
     this.scene.add(directionalLight2)
 
-    const axesHelper = new AxesHelper(100)
+    const axesHelper = new AxesHelper(1000)
     this.scene.add(axesHelper)
   }
 
@@ -72,42 +73,59 @@ export class Layer implements CustomLayerInterface {
     const scale = origin.meterInMercatorCoordinateUnits()
 
     this.state.buildings.forEach((feature, index) => {
-      if (feature.properties.type === "building") {
-        const lnglat: [number, number] =
-          feature.geometry.type === "Polygon"
-            ? [
-                feature.geometry.coordinates[0][0][0],
-                feature.geometry.coordinates[0][0][1],
-              ]
-            : [
-                feature.geometry.coordinates[0][0][0][0],
-                feature.geometry.coordinates[0][0][0][1],
-              ]
+      if (
+        feature &&
+        feature.properties &&
+        feature.properties.type === "building" &&
+        !feature.drawn
+      ) {
+        let lnglat: null | [number, number]
+        switch (feature.geometry.type) {
+          case "Polygon":
+            lnglat = [
+              feature.geometry.coordinates[0][0][0],
+              feature.geometry.coordinates[0][0][1],
+            ]
+            break
+          case "MultiPolygon":
+            lnglat = [
+              feature.geometry.coordinates[0][0][0][0],
+              feature.geometry.coordinates[0][0][0][1],
+            ]
+            break
+          default:
+            lnglat = null
+        }
+
+        if (!lnglat) return
+
         const pos: MercatorCoordinate = MercatorCoordinate.fromLngLat(
           lnglat
         )
 
-        // const mercatorOffset = {
-        //   x: pos.x - origin.x,
-        //   y: pos.y - origin.y,
-        // }
-        // console.log("offset in meters", mercatorOffset)
-        // const geometry = new BoxGeometry(20, 20, 20)
-        // const material = new MeshBasicMaterial({ color: 0x666666 })
-        // const cube = new Mesh(geometry, material)
-        // cube.position.set(mercatorOffset.x, mercatorOffset.y, 0)
-        // if (this.scene) this.scene.add(cube)
+        const mercatorOffset = {
+          x: (pos.x - origin.x) / scale,
+          y: (pos.y - origin.y) / scale,
+        }
+
+        console.log("offset in meters", mercatorOffset)
+        const geometry = new BoxGeometry(20, 20, 20)
+        const material = new MeshBasicMaterial({ color: 0x666666 })
+        const cube = new Mesh(geometry, material)
+        cube.position.set(mercatorOffset.x, mercatorOffset.y, 0)
+
+        if (this.scene) this.scene.add(cube)
         this.state.buildings[index].drawn = true
       }
     })
+    const geometry = new BoxGeometry(20, 20, 20)
+    const material = new MeshBasicMaterial({ color: 0x666666 })
+    const cube = new Mesh(geometry, material)
+    if (this.scene) this.scene.add(cube)
 
     const m = new Matrix4().fromArray(matrix)
     const l = new Matrix4()
-      .makeTranslation(
-        MercatorCoordinate.fromLngLat([originLng, originLat]).x,
-        MercatorCoordinate.fromLngLat([originLng, originLat]).y,
-        0
-      )
+      .makeTranslation(origin.x, origin.y, 0)
       .scale(new Vector3(scale, scale, scale))
 
     if (!!this.map && !!this.renderer && !!this.scene && !!this.camera) {

@@ -14,7 +14,7 @@ export function App(): JSX.Element {
           style: "mapbox://styles/mapbox/streets-v11",
           zoom: 14,
           center: [originLng, originLat],
-          pitch: 30,
+          pitch: 15,
           antialias: true,
         })
 
