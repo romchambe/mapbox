@@ -144,60 +144,6 @@ export class Layer implements CustomLayerInterface {
   }
 
   render(gl: WebGLRenderingContext, matrix: Array<number>): void {
-    this.state.buildings.forEach((feature, index) => {
-      if (
-        feature &&
-        feature.properties &&
-        feature.properties.type === "building" &&
-        !feature.drawn
-      ) {
-        let lnglat: null | [number, number]
-
-        switch (feature.geometry.type) {
-          // get only polygons and multipolygons coords
-          case "Polygon":
-            lnglat = [
-              feature.geometry.coordinates[0][0][0],
-              feature.geometry.coordinates[0][0][1],
-            ]
-            break
-          case "MultiPolygon":
-            lnglat = [
-              feature.geometry.coordinates[0][0][0][0],
-              feature.geometry.coordinates[0][0][0][1],
-            ]
-            break
-          default:
-            lnglat = null
-        }
-
-        if (!lnglat) return
-
-        const pos: MercatorCoordinate = MercatorCoordinate.fromLngLat(
-          lnglat
-        )
-
-        // compute the offset from origin in meters
-        const mercatorOffset = {
-          x: (pos.x - this.origin.x) / this.scale,
-          y: (pos.y - this.origin.y) / this.scale,
-        }
-
-        // draw a g
-        const geometry = new CylinderGeometry(10, 10, 3, 32)
-        const material = new MeshPhongMaterial({
-          color: 0xaaaaaa,
-          specular: "#cccccc",
-          emissive: "#888888",
-        })
-        const obj = new Mesh(geometry, material)
-        obj.position.set(mercatorOffset.x, mercatorOffset.y, 0)
-        obj.rotation.set(0, Math.PI / 2, Math.PI / 2)
-        if (this.scene) this.scene.add(obj)
-        this.state.buildings[index].drawn = true
-      }
-    })
-
     if (!!this.map && !!this.renderer && !!this.scene && !!this.camera) {
       // console.log(this.map.transform.mercatorMatrix, matrix)
       this.camera.projectionMatrix = new Matrix4()
@@ -221,6 +167,7 @@ function animate(cylinder: Object3D) {
   }
 
   requestAnimationFrame((time) => {
+    console.log("ANIM ", time)
     animate(cylinder)
   })
 }

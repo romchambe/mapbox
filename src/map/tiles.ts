@@ -1,7 +1,12 @@
 //Javascript implementation of a script found at https://help.openstreetmap.org/questions/747/given-a-latlon-how-do-i-find-the-precise-position-on-the-tile
 
-import mapboxgl, { LngLat, MapboxEvent } from "mapbox-gl"
+import mapboxgl, {
+  LngLat,
+  MapboxEvent,
+  MercatorCoordinate,
+} from "mapbox-gl"
 import Protobuf from "pbf"
+import { CylinderGeometry, MeshPhongMaterial, Mesh } from "three"
 import { Layer } from "./createLayer"
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -61,13 +66,17 @@ export function loadTiles(this: Layer, event: MapboxEvent): void {
             const data = await res.arrayBuffer()
             const tile = new parser.VectorTile(new Protobuf(data))
 
-            this.state.buildings = new Array(tile.layers.building.length)
-              .fill(null)
-              .map((el, index) => {
-                return tile.layers.building
-                  .feature(index)
-                  .toGeoJSON(x, y, zoom)
-              })
+            this.state.buildings = this.state.buildings.concat(
+              new Array(tile.layers.building.length)
+                .fill(null)
+                .map((el, index) => {
+                  return tile.layers.building
+                    .feature(index)
+                    .toGeoJSON(x, y, zoom)
+                })
+            )
+
+            drawBuilings.apply(this)
 
             console.log(
               "Tile buildings",
@@ -91,4 +100,58 @@ export function loadTiles(this: Layer, event: MapboxEvent): void {
         })
     }
   }
+}
+
+function drawBuilings(this: Layer) {
+  this.state.buildings.forEach((feature, index) => {
+    if (
+      feature &&
+      feature.properties &&
+      feature.properties.type === "building" &&
+      !feature.drawn
+    ) {
+      let lnglat: null | [number, number]
+
+      switch (feature.geometry.type) {
+        // get only polygons and multipolygons coords
+        case "Polygon":
+          lnglat = [
+            feature.geometry.coordinates[0][0][0],
+            feature.geometry.coordinates[0][0][1],
+          ]
+          break
+        case "MultiPolygon":
+          lnglat = [
+            feature.geometry.coordinates[0][0][0][0],
+            feature.geometry.coordinates[0][0][0][1],
+          ]
+          break
+        default:
+          lnglat = null
+      }
+
+      if (!lnglat) return
+
+      const pos: MercatorCoordinate = MercatorCoordinate.fromLngLat(lnglat)
+
+      // compute the offset from origin in meters
+      const mercatorOffset = {
+        x: (pos.x - this.origin.x) / this.scale,
+        y: (pos.y - this.origin.y) / this.scale,
+      }
+
+      // draw a cylinder on buildings positions
+      const geometry = new CylinderGeometry(10, 10, 3, 32)
+      const material = new MeshPhongMaterial({
+        color: 0xaaaaaa,
+        specular: "#cccccc",
+        emissive: "#888888",
+      })
+      const obj = new Mesh(geometry, material)
+      obj.position.set(mercatorOffset.x, mercatorOffset.y, 0)
+      obj.rotation.set(0, Math.PI / 2, Math.PI / 2)
+      if (this.scene) this.scene.add(obj)
+      this.state.buildings[index].drawn = true
+    }
+  })
 }
