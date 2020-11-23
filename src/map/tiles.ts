@@ -7,7 +7,7 @@ import mapboxgl, {
 } from "mapbox-gl"
 import Protobuf from "pbf"
 import { CylinderGeometry, MeshPhongMaterial, Mesh } from "three"
-import { Layer } from "./createLayer"
+import { Layer } from "./layer"
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const parser = require("@mapbox/vector-tile")
@@ -54,6 +54,7 @@ export function loadTiles(this: Layer, event: MapboxEvent): void {
   if (zoom >= 13 && zoom < 16) {
     if (!this.state.tilesLoaded.includes(`${x}-${y}-${zoom}`)) {
       this.state.tilesLoaded.push(`${x}-${y}-${zoom}`)
+
       fetch(
         `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/${Math.floor(
           zoom
@@ -139,7 +140,7 @@ function drawBuilings(this: Layer) {
         x: (pos.x - this.origin.x) / this.scale,
         y: (pos.y - this.origin.y) / this.scale,
       }
-
+      console.log("height", feature.properties.height)
       // draw a cylinder on buildings positions
       const geometry = new CylinderGeometry(10, 10, 3, 32)
       const material = new MeshPhongMaterial({
@@ -148,10 +149,13 @@ function drawBuilings(this: Layer) {
         emissive: "#888888",
       })
       const obj = new Mesh(geometry, material)
+
       obj.position.set(mercatorOffset.x, mercatorOffset.y, 0)
       obj.rotation.set(0, Math.PI / 2, Math.PI / 2)
+
       if (this.scene) this.scene.add(obj)
       this.state.buildings[index].drawn = true
+      this.state.buildings[index].id = obj.id
     }
   })
 }

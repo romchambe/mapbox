@@ -7,7 +7,6 @@ import {
 } from "mapbox-gl"
 
 import {
-  CylinderGeometry,
   DirectionalLight,
   Intersection,
   Matrix4,
@@ -26,7 +25,7 @@ import { loadTiles } from "./tiles"
 export const originLat = 48.85827
 export const originLng = 2.29448
 
-type DrawableFeature = { drawn: boolean } & GeoJSON.Feature
+type DrawableFeature = { drawn: boolean; id: number } & GeoJSON.Feature
 export class Layer implements CustomLayerInterface {
   id: string
   renderingMode: "2d" | "3d"
@@ -77,6 +76,7 @@ export class Layer implements CustomLayerInterface {
       1,
       1e6
     )
+
     this.scene = new Scene()
     this.renderer = new WebGLRenderer({
       canvas: map.getCanvas(),
@@ -84,7 +84,6 @@ export class Layer implements CustomLayerInterface {
       antialias: true,
     })
 
-    console.log(this.map.transform, this.cameraTransform)
     this.renderer.autoClear = false
     this.map.on("move", this.loadTiles)
 
@@ -131,14 +130,30 @@ export class Layer implements CustomLayerInterface {
         const material = (intersection.object as Mesh)
           .material as MeshPhongMaterial
 
-        material.color.setHex(0x00aa00)
-        material.emissive.setHex(0x008800)
-        material.specular.setHex(0x00cc00)
+        const building = this.state.buildings.filter(
+          (building) => building.id === intersection.object.id
+        )[0]
 
-        animate(intersection.object)
+        if (building && building.properties) {
+          const height = building.properties.height
+          if (height < 10) {
+            material.color.setHex(0x0000aa)
+            material.emissive.setHex(0x000088)
+            material.specular.setHex(0x0000cc)
+          } else if (height < 100) {
+            material.color.setHex(0x00aa00)
+            material.emissive.setHex(0x008800)
+            material.specular.setHex(0x00cc00)
+          } else {
+            material.color.setHex(0xaa0000)
+            material.emissive.setHex(0x880000)
+            material.specular.setHex(0xcc0000)
+          }
+          animate(intersection.object, height)
+        }
       })
       if (intersects.length > 0) {
-        console.log("MOUSE", intersects[0])
+        console.log("MOUSE", intersects[0].object.id)
       }
     }
   }
@@ -157,17 +172,17 @@ export class Layer implements CustomLayerInterface {
   }
 }
 
-function animate(cylinder: Object3D) {
-  const intervals = 30
-  const height = 20
-  const changePerInterval = height / intervals
+function animate(cylinder: Object3D, height?: number) {
+  if (height) {
+    const intervals = 30
+    const changePerInterval = height / 3 / intervals
 
-  while (cylinder.scale.y < height) {
-    cylinder.scale.y += changePerInterval
+    while (cylinder.scale.y < height) {
+      cylinder.scale.y += changePerInterval
+    }
   }
 
-  requestAnimationFrame((time) => {
-    console.log("ANIM ", time)
+  requestAnimationFrame(() => {
     animate(cylinder)
   })
 }

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react"
 import mapboxgl, { MapboxEvent, MapMouseEvent } from "mapbox-gl"
 import "../assets/styles/tailwind.output.css"
-import { originLat, originLng, Layer } from "../map/createLayer"
+import { originLat, originLng, Layer } from "../map/layer"
 
 export function App(): JSX.Element {
   const [mapEl, setMapEl] = useState<null | mapboxgl.Map>(null)
